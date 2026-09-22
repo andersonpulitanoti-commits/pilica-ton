@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pilica TON</title>
+
+    <script src="https://unpkg.com/@tonconnect/ui@2.2.0/dist/tonconnect-ui.min.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            text-align: center;
+        }
+
+        #ton-connect {
+            margin: 30px auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        #status {
+            word-break: break-all;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Pilica TON</h1>
+
+    <p>Teste de conexão da carteira TON.</p>
+
+    <div id="ton-connect"></div>
+
+    <p id="status">Carteira não conectada</p>
+
+    <script>
+        const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+            manifestUrl:
+                'https://andersonpulitanoti-commits.github.io/pilica-ton/tonconnect-manifest.json',
+            buttonRootId: 'ton-connect'
+        });
+
+        tonConnectUI.onStatusChange(wallet => {
+            const status = document.getElementById('status');
+
+            if (wallet) {
+                status.textContent =
+                    'Carteira conectada: ' + wallet.account.address;
+
+                console.log('Carteira conectada:', wallet);
+            } else {
+                status.textContent = 'Carteira não conectada';
+            }
+        });
+    </script>
+</body>
+</html>
