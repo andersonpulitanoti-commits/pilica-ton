@@ -8,34 +8,117 @@
     <script src="https://unpkg.com/@tonconnect/ui@2.2.0/dist/tonconnect-ui.min.js"></script>
 
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: Arial, sans-serif;
             max-width: 600px;
-            margin: 40px auto;
-            padding: 20px;
+            margin: 0 auto;
+            padding: 30px 20px;
             text-align: center;
+            background: #f5f7fb;
+            color: #111827;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 4px 20px rgba(0,0,0,.08);
+        }
+
+        h1 {
+            margin-top: 0;
         }
 
         #ton-connect {
-            margin: 30px auto;
+            margin: 25px auto;
             display: flex;
             justify-content: center;
         }
 
-        #status {
+        #user-info {
+            display: none;
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 12px;
+            background: #eef2ff;
+        }
+
+        #username {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        #wallet-address {
+            margin-top: 8px;
+            font-size: 12px;
             word-break: break-all;
+            color: #6b7280;
+        }
+
+        #deposit-section {
+            display: none;
+            margin-top: 25px;
+        }
+
+        #deposit-button {
+            width: 100%;
+            border: 0;
+            border-radius: 12px;
+            padding: 15px;
+            font-size: 17px;
+            font-weight: bold;
+            cursor: pointer;
+            background: #0088cc;
+            color: white;
+        }
+
+        #deposit-button:disabled {
+            opacity: .6;
+            cursor: not-allowed;
+        }
+
+        #status {
+            margin-top: 20px;
+            word-break: break-word;
+        }
+
+        .note {
+            font-size: 13px;
+            color: #6b7280;
+            margin-top: 12px;
         }
     </style>
 </head>
 
 <body>
-    <h1>Pilica TON</h1>
+    <div class="card">
+        <h1>Pilica TON</h1>
 
-    <p>Teste de conexão da carteira TON.</p>
+        <p>Conecte sua carteira TON para acessar sua conta.</p>
 
-    <div id="ton-connect"></div>
+        <div id="ton-connect"></div>
 
-    <p id="status">Carteira não conectada</p>
+        <div id="user-info">
+            <div>Olá, <span id="username">Usuário</span>! 👋</div>
+            <div id="wallet-address"></div>
+        </div>
+
+        <div id="deposit-section">
+            <button id="deposit-button">
+                Depositar TON
+            </button>
+
+            <div class="note">
+                O depósito será enviado para a carteira do aplicativo.
+            </div>
+        </div>
+
+        <p id="status">Carteira não conectada</p>
+    </div>
 
     <script>
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
@@ -44,16 +127,130 @@
             buttonRootId: 'ton-connect'
         });
 
-        tonConnectUI.onStatusChange(wallet => {
+        /*
+         * ENDEREÇO DA CARTEIRA DO APLICATIVO
+         *
+         * IMPORTANTE:
+         * Troque o valor abaixo pelo endereço TON que receberá os depósitos.
+         */
+        const APP_WALLET_ADDRESS =
+            'EQXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
+
+        /*
+         * Nome do usuário:
+         *
+         * O TON Connect fornece a carteira conectada, mas não fornece
+         * automaticamente o nome/perfil do usuário do Telegram.
+         *
+         * Por isso, primeiro tentamos obter o nome através do Telegram
+         * WebApp quando o Mini App estiver aberto dentro do Telegram.
+         */
+        function getTelegramUserName() {
+            const tg = window.Telegram && window.Telegram.WebApp;
+
+            if (!tg || !tg.initDataUnsafe || !tg.initDataUnsafe.user) {
+                return 'Usuário';
+            }
+
+            const user = tg.initDataUnsafe.user;
+
+            if (user.first_name) {
+                return user.first_name;
+            }
+
+            if (user.username) {
+                return '@' + user.username;
+            }
+
+            return 'Usuário';
+        }
+
+        function shortenAddress(address) {
+            if (!address) return '';
+            if (address.length <= 16) return address;
+
+            return address.slice(0, 8) + '...' + address.slice(-8);
+        }
+
+        function updateConnectedUI(wallet) {
+            const userInfo = document.getElementById('user-info');
+            const depositSection = document.getElementById('deposit-section');
+            const username = document.getElementById('username');
+            const walletAddress = document.getElementById('wallet-address');
             const status = document.getElementById('status');
 
             if (wallet) {
-                status.textContent =
-                    'Carteira conectada: ' + wallet.account.address;
+                username.textContent = getTelegramUserName();
+                walletAddress.textContent =
+                    'Carteira: ' + shortenAddress(wallet.account.address);
 
-                console.log('Carteira conectada:', wallet);
+                userInfo.style.display = 'block';
+                depositSection.style.display = 'block';
+
+                status.textContent = 'Carteira conectada ✅';
             } else {
+                userInfo.style.display = 'none';
+                depositSection.style.display = 'none';
                 status.textContent = 'Carteira não conectada';
+            }
+        }
+
+        tonConnectUI.onStatusChange(wallet => {
+            updateConnectedUI(wallet);
+            console.log('Carteira:', wallet);
+        });
+
+        document.getElementById('deposit-button').addEventListener('click', async () => {
+            const button = document.getElementById('deposit-button');
+            const status = document.getElementById('status');
+
+            if (!tonConnectUI.connected) {
+                status.textContent = 'Conecte sua carteira primeiro.';
+                return;
+            }
+
+            if (APP_WALLET_ADDRESS.includes('XXXX')) {
+                status.textContent =
+                    'Configure primeiro o endereço da carteira do aplicativo no código.';
+                return;
+            }
+
+            try {
+                button.disabled = true;
+                button.textContent = 'Aguardando confirmação...';
+
+                /*
+                 * Valor inicial do depósito:
+                 * 0.1 TON = 100.000.000 nanotons
+                 *
+                 * Para alterar o valor, modifique "amount".
+                 */
+                const transaction = {
+                    validUntil: Math.floor(Date.now() / 1000) + 600,
+
+                    messages: [
+                        {
+                            address: APP_WALLET_ADDRESS,
+                            amount: '100000000'
+                        }
+                    ]
+                };
+
+                const result = await tonConnectUI.sendTransaction(transaction);
+
+                console.log('Transação enviada:', result);
+
+                status.textContent =
+                    'Transação enviada para a carteira. Aguarde a confirmação da rede. ✅';
+
+            } catch (error) {
+                console.error('Erro na transação:', error);
+
+                status.textContent =
+                    'Transação cancelada ou ocorreu um erro.';
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Depositar TON';
             }
         });
     </script>
